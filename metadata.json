@@ -1,0 +1,6 @@
+{
+  "name": "SmartWaste Surabaya - DLH Mobile Officer UI",
+  "description": "Intelligent waste transport optimization and route navigation mobile UI for field officers of Dinas Lingkungan Hidup Kota Surabaya, designed for mobile usability and Figma import.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
