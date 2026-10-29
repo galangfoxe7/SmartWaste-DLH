@@ -10,6 +10,7 @@ import {
 import { 
   initialOfficer, 
   initialVehicle, 
+  dlhFleetList,
   initialTPSList, 
   initialTrafficAlerts, 
   initialNotifications, 
@@ -27,21 +28,20 @@ import { ProfileScreen } from './components/screens/ProfileScreen';
 import { CollectionModal } from './components/common/CollectionModal';
 import { FigmaExportModal } from './components/figma/FigmaExportModal';
 import { FigmaArtboardCanvas } from './components/figma/FigmaArtboardCanvas';
+import { DesktopCommandCenter } from './components/desktop/DesktopCommandCenter';
 import { 
+  Monitor, 
   Smartphone, 
   Layers, 
   Download, 
   Shield, 
-  Sparkles, 
   RefreshCw,
-  ExternalLink,
-  ChevronRight,
-  HelpCircle
+  ChevronRight
 } from 'lucide-react';
 
 export default function App() {
-  // App View Mode: 'phone' (Interactive Simulator) vs 'figma_canvas' (5 screens side-by-side)
-  const [viewMode, setViewMode] = useState<'phone' | 'figma_canvas'>('phone');
+  // App View Mode: 'desktop' (Command Center) vs 'phone' (Driver Simulator) vs 'figma_canvas' (5 screens side-by-side)
+  const [viewMode, setViewMode] = useState<'desktop' | 'phone' | 'figma_canvas'>('desktop');
   
   // Active screen in Phone mode
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('dashboard');
@@ -49,6 +49,7 @@ export default function App() {
   // App Operational State
   const [officer, setOfficer] = useState<OfficerProfile>(initialOfficer);
   const [vehicle, setVehicle] = useState<VehicleSpecs>(initialVehicle);
+  const [fleetList, setFleetList] = useState<VehicleSpecs[]>(dlhFleetList);
   const [tpsList, setTpsList] = useState<TPSLocation[]>(initialTPSList);
   const [trafficAlerts, setTrafficAlerts] = useState(initialTrafficAlerts);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
@@ -78,6 +79,7 @@ export default function App() {
             collectionCompletedAt: '08:25 WIB',
             collectedWeightTons,
             notes,
+            lastEmptiedAt: 'Hari ini, 08:25 WIB',
           };
         }
         return item;
@@ -85,10 +87,16 @@ export default function App() {
     );
 
     // 2. Update Vehicle Current Load
+    const newLoad = Math.min(vehicle.maxLoadTons, Math.round((vehicle.currentLoadTons + collectedWeightTons) * 10) / 10);
     setVehicle((prev) => ({
       ...prev,
-      currentLoadTons: Math.min(prev.maxLoadTons, Math.round((prev.currentLoadTons + collectedWeightTons) * 10) / 10),
+      currentLoadTons: newLoad,
     }));
+
+    // Update Fleet list for that vehicle
+    setFleetList((prev) =>
+      prev.map((v) => (v.id === vehicle.id ? { ...v, currentLoadTons: newLoad } : v))
+    );
 
     // 3. Add dispatch confirmation notification
     const newNotif: NotificationItem = {
@@ -118,6 +126,7 @@ export default function App() {
 
   const handleResetData = () => {
     setVehicle(initialVehicle);
+    setFleetList(dlhFleetList);
     setTpsList(initialTPSList);
     setNotifications(initialNotifications);
     setRouteStats(initialRouteStats);
@@ -128,9 +137,41 @@ export default function App() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
+  const handleOpenMobileViewWithVehicle = (v: VehicleSpecs) => {
+    setVehicle(v);
+    setOfficer((prev) => ({
+      ...prev,
+      name: v.driverName,
+      role: `Pengemudi ${v.id}`,
+    }));
+    setViewMode('phone');
+    setCurrentScreen('dashboard');
+  };
+
+  const handleDispatchFleetToTps = (tps: TPSLocation) => {
+    setSelectedTps(tps);
+    setTpsList((prev) =>
+      prev.map((item) =>
+        item.id === tps.id ? { ...item, taskStatus: 'in_progress', arrivalTimeEstimated: '10 mnt (Segera Tiba)' } : item
+      )
+    );
+    const newNotif: NotificationItem = {
+      id: `NOTIF-DSP-${Date.now()}`,
+      title: `Disposisi Baru: ${tps.name}`,
+      message: `Pusat Kendali DLH menugaskan armada ke ${tps.name} (${tps.district}) karena kapasitas mencapai ${tps.fillPercentage}%.`,
+      timestamp: 'Baru saja',
+      severity: 'critical',
+      category: 'capacity',
+      relatedTpsId: tps.id,
+      isRead: false,
+      actionRequired: true,
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Workspace Header (Applet Mode & Figma Switcher) */}
+      {/* Top Main Master Navigation Bar */}
       <header className="shrink-0 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 z-40">
         {/* Brand Lockup */}
         <div className="flex items-center gap-3">
@@ -143,17 +184,31 @@ export default function App() {
                 SmartWaste Surabaya
               </span>
               <span className="text-[10px] bg-emerald-950 text-emerald-300 font-mono font-medium px-2 py-0.5 rounded border border-emerald-800">
-                DLH Mobile UI
+                DLH Enterprise Suite
               </span>
             </div>
             <p className="text-[11px] text-slate-400 hidden sm:block">
-              Desain Antarmuka Petugas Lapangan & Pengemudi Truk Kompaktor
+              Sistem Cerdas Optimasi Rute, Jadwal, & Pengendalian Armada Persampahan Surabaya
             </p>
           </div>
         </div>
 
-        {/* View Mode Segmented Control */}
+        {/* View Mode Switcher: Desktop vs Mobile vs Figma */}
         <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+          <button
+            type="button"
+            onClick={() => setViewMode('desktop')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+              viewMode === 'desktop'
+                ? 'bg-emerald-800 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Pusat Kendali Dekstop</span>
+            <span className="sm:hidden">Dekstop</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setViewMode('phone')}
@@ -164,7 +219,7 @@ export default function App() {
             }`}
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Simulator Ponsel (390×844)</span>
+            <span className="hidden sm:inline">UI Petugas Ponsel (390×844)</span>
             <span className="sm:hidden">Ponsel</span>
           </button>
 
@@ -178,8 +233,8 @@ export default function App() {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Kanvas Figma (5 Layar)</span>
-            <span className="sm:hidden">5 Layar</span>
+            <span className="hidden md:inline">Kanvas Figma (5 Layar)</span>
+            <span className="md:hidden">Figma</span>
           </button>
         </div>
 
@@ -201,7 +256,7 @@ export default function App() {
         <div className="bg-slate-900/60 border-b border-slate-800/80 px-4 py-2 flex items-center justify-between text-xs text-slate-400 overflow-x-auto">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-              Layar Aktif:
+              Layar Ponsel:
             </span>
             {(['login', 'dashboard', 'map', 'vehicle_tasks', 'notifications', 'profile'] as ScreenType[]).map((scr) => (
               <button
@@ -238,7 +293,20 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {viewMode === 'figma_canvas' ? (
+        {viewMode === 'desktop' ? (
+          <DesktopCommandCenter
+            tpsList={tpsList}
+            fleetList={fleetList}
+            trafficAlerts={trafficAlerts}
+            notifications={notifications}
+            routeStats={routeStats}
+            onOpenMobileView={() => setViewMode('phone')}
+            onOpenMobileViewWithVehicle={handleOpenMobileViewWithVehicle}
+            onOpenFigmaModal={() => setIsFigmaModalOpen(true)}
+            onOpenFigmaCanvas={() => setViewMode('figma_canvas')}
+            onDispatchFleetToTps={handleDispatchFleetToTps}
+          />
+        ) : viewMode === 'figma_canvas' ? (
           <FigmaArtboardCanvas
             officer={officer}
             vehicle={vehicle}

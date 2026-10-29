@@ -1,5 +1,13 @@
 export type ScreenType = 'login' | 'dashboard' | 'map' | 'vehicle_tasks' | 'notifications' | 'profile';
 
+export type DesktopTab = 
+  | 'overview' 
+  | 'fleet_tracking' 
+  | 'tps_monitor' 
+  | 'route_optimizer' 
+  | 'analytics_reports' 
+  | 'settings';
+
 export type TaskStatus = 'completed' | 'in_progress' | 'pending' | 'delayed';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -30,6 +38,15 @@ export interface VehicleSpecs {
   driverName: string;
   copilotName: string;
   lastServiceDate: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+    mapX: number;
+    mapY: number;
+  };
+  currentLocationName?: string;
+  assignedRouteName?: string;
+  speedKmH?: number;
 }
 
 export interface TPSLocation {
@@ -57,6 +74,7 @@ export interface TPSLocation {
   notes?: string;
   cctvActive: boolean;
   iotSensorBattery: number;
+  lastEmptiedAt?: string;
 }
 
 export interface TrafficAlert {
@@ -90,3 +108,16 @@ export interface RouteStats {
   totalTargetTons: number;
   currentDestinationId: string;
 }
+
+export interface DailyTonnageRecord {
+  day: string;
+  tonnage: number;
+  trips: number;
+}
+
+export interface WasteComposition {
+  category: string;
+  percentage: number;
+  color: string;
+}
+
